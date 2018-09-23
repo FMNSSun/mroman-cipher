@@ -72,11 +72,31 @@ func (c *Cipher) decrypt(data_ []byte) []byte {
 	data := make([]byte, len(data_))
 	copy(data, data_)
 	
+	// ** Reverse last stage **
+	
+	shlbuf := make([]byte, 8)
+	copy(shlbuf, c.prng.hash(c.dkey)[0:8])
+	
+	for i := 0; i < len(data); i++ {
+		it := (shlbuf[0] + shlbuf[1]) ^ (shlbuf[2] & shlbuf[3]) ^ (shlbuf[4] * shlbuf[5])
+		it ^= ^shlbuf[6] ^ ((shlbuf[7] >> 1) | (shlbuf[7] << 7))
+		
+		data[i] ^= it
+		e := data[i]
+		
+		for j := 0; j < len(shlbuf)-1; j++ {
+			shlbuf[j] = shlbuf[j+1]
+		}
+		
+		shlbuf[7] = e
+	}
+	
 	// ** Reverse encryption stage **
+	
 	c.prng.Reset()
 	
 	for i := 0; i < len(data); i++ {
-		data[i] ^= c.dkey[i >> 2]
+		data[i] ^= c.dkey[i % len(c.dkey)]
 		
 		v := c.prng.Next() & 0x03
 		switch v {
@@ -189,8 +209,12 @@ func (c *Cipher) encrypt(data []byte) []byte {
 	// We don't want the IV to be visible in plaintext. Thus, we
 	// also encrypt the IV. 
 	
+	// Reset PRNG.
 	c.prng.Reset()
 	
+	// XOR everything with a random byte from c.dkey and a
+	// random byte from the PRNG and randomly throw away a few
+	// values from the PRNG. 
 	for r := 0; r < 3; r++ {
 		for i := 0; i < len(data); i++ {
 			data[i] ^= c.dkey[c.prng.Next() >> 2] ^ c.prng.Next()
@@ -204,6 +228,9 @@ func (c *Cipher) encrypt(data []byte) []byte {
 		}
 	}
 	
+	// Randomly rotate bytes to the left or right or
+	// use binary complement or swap nibbles. Then also
+	// XOR them with a byte from c.dkey
 	c.prng.Reset()
 	
 	for i := 0; i < len(data); i++ {
@@ -221,7 +248,37 @@ func (c *Cipher) encrypt(data []byte) []byte {
 			data[i] = (bl << 4) | bh
 		}
 		
-		data[i] ^= c.dkey[i >> 2]
+		data[i] ^= c.dkey[i % len(c.dkey)]
+	}
+	
+	// ** Last stage **
+	
+	// This last stage ensures that there's a dependency on
+	// the plaintext itself. The next byte is XORed with
+	// a value that depends on the last bytes that were encrypted. 
+	
+	// Allocate shift buffer
+	shlbuf := make([]byte, 8)
+	// Initialize it with 8 bytes. 
+	copy(shlbuf, c.prng.hash(c.dkey)[0:8])
+	
+	for i := 0; i < len(data); i++ {
+		// Calculate the next value based on all the values in the
+		// shift buffer. 
+		it := (shlbuf[0] + shlbuf[1]) ^ (shlbuf[2] & shlbuf[3]) ^ (shlbuf[4] * shlbuf[5])
+		it ^= ^shlbuf[6] ^ ((shlbuf[7] >> 1) | (shlbuf[7] << 7))
+		
+		// save plaintext for later and XOR it with the calculated value.
+		e := data[i]
+		data[i] ^= it
+		
+		// Shift all values to the left and shift in the previous
+		// plaintext byte. 
+		for j := 0; j < len(shlbuf)-1; j++ {
+			shlbuf[j] = shlbuf[j+1]
+		}
+		
+		shlbuf[7] = e
 	}
 	
 	return data

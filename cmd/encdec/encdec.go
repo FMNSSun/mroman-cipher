@@ -9,7 +9,7 @@ import (
 func main() {
 	c := mrc.NewCipher([]byte("hi there"), sha3.Sum512)
 	
-	data := []byte("    ")
+	data := []byte("hello, world!")
 	encData := c.Encrypt(data)
 	decData := c.Decrypt(encData)
 	
