@@ -97,7 +97,7 @@ func (c *Cipher) decrypt(data_ []byte) []byte {
 	
 	for r := 0; r < 3; r++ {
 		for i := 0; i < len(data); i++ {
-			data[i] ^= c.dkey[c.prng.Next() >> 2]
+			data[i] ^= c.dkey[c.prng.Next() >> 2] ^ c.prng.Next()
 		}
 		
 		n := int(c.prng.Next())
@@ -193,7 +193,7 @@ func (c *Cipher) encrypt(data []byte) []byte {
 	
 	for r := 0; r < 3; r++ {
 		for i := 0; i < len(data); i++ {
-			data[i] ^= c.dkey[c.prng.Next() >> 2]
+			data[i] ^= c.dkey[c.prng.Next() >> 2] ^ c.prng.Next()
 		}
 		
 		n := int(c.prng.Next())
