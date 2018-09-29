@@ -136,6 +136,8 @@ func (c *Cipher) decrypt(data_ []byte) []byte {
 		
 		bl = c.sboxes_d[sl][bl]
 		bh = c.sboxes_d[sh][bh]
+		
+		data[i] = byte((bh << 4) | bl)
 	}
 	
 	// ** Reverse encryption stage **
@@ -310,6 +312,8 @@ func (c *Cipher) encrypt(data []byte) []byte {
 		
 		bl = c.sboxes_e[sl][bl]
 		bh = c.sboxes_e[sh][bh]
+		
+		data[i] = byte((bh << 4) | bl)
 	}
 	
 	// ** Last stage **
